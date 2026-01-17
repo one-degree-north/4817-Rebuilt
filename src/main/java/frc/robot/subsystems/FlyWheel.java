@@ -9,23 +9,28 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.controls.ControlRequest;
 import com.ctre.phoenix6.controls.Follower;
 
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.constants.MotorConfigs;
 
 public class FlyWheel extends SubsystemBase {
     final private String CAN_BUS = "rio";
     final private String MOTOR_TYPE = "Falcon500";
-    final private double SHOOT_VOLTS = 5.0;
+    final private double TARGET_RPM = 3000.0; // do note that this is positive
     private TalonFX m_upper, m_lower;
+    private PIDController pid = new PIDController(0, 0, 0);
 
     private VoltageOut voltageOut;
-    private double voltageInput;
+
+    /* The voltage output is 5.0 by default */
+    private double outputVolts = 5.0;
+    private boolean isShooting = false;
 
     public FlyWheel() {
         this.m_lower = new TalonFX(1, CAN_BUS);
         this.m_upper = new TalonFX(2, CAN_BUS);
-        this.voltageInput = 0.5;
         this.voltageOut = new VoltageOut(0);
+        this.pid.setSetpoint(-TARGET_RPM);
         configureMotors();
     }
 
@@ -56,104 +61,36 @@ public class FlyWheel extends SubsystemBase {
     }
 
     /**
-     * Get the state of a motor (either clockwise, counterclockwise, or at rest) as
-     * an int
-     * 
-     * @param motor
-     *              - the motor you are getting the state of
-     * @return the state of the motor: -1 = clockwise, 1 = counterclockwise, 0 = at
-     *         rest
-     */
-    public int getMotorState(TalonFX motor) {
-        double velocity = motor.getVelocity().getValueAsDouble();
-
-        // Use 0.01 to avoid noise issue
-        if (velocity > 0.01) {
-            // Clockwise
-            return -1;
-        } else if (velocity < -0.01) {
-            // Counterclockwise
-            return 1;
-        }
-
-        // At rest
-        return 0;
-    }
-
-    /**
-     * Increase the voltage of a specific motor
-     * 
-     * @param motor
-     *              - the motor you are trying to increase the voltage
-     * @param input
-     *              - the amount of voltage you are trying to increase (this is
-     *              always positive)
-     */
-    public void voltageUp(TalonFX motor, double input) {
-        if (input < 0)
-            throw new Error("The input must be positive");
-        setControl(motor, voltageOut.withOutput(input));
-    }
-
-    /**
-     * 
-     * Increase the upper motor's voltage with the defined `voltageInput` variable
-     */
-    public void voltageUp() {
-        setControl(m_upper, voltageOut.withOutput(voltageInput));
-    }
-
-    /**
-     * Decrease the voltage of a specific motor
-     * 
-     * @param motor
-     *              - the motor you are trying to decrease the voltage
-     * @param input
-     *              - the amount of voltage you are trying to decrease (this is
-     *              always positive)
-     */
-    public void voltageDown(TalonFX motor, double input) {
-        if (input < 0)
-            throw new Error("The input must be positive");
-        setControl(motor, voltageOut.withOutput(-input));
-    }
-
-    /**
-     * Decrease the upper motor's voltage with the defined `voltageInput` variable
-     */
-    public void voltageDown() {
-        setControl(m_upper, voltageOut.withOutput(-voltageInput));
-    }
-
-    /**
      * Stop the 2 motors
      */
     public void stopMotor() {
+        isShooting = false;
         setControl(m_upper, voltageOut.withOutput(0));
     }
 
     /**
-     * Get the velocity of a specified motor
-     * 
-     * @param motor
-     *              - the motor you are getting the velocity
-     * @return the velocity of that motor
-     */
-    public double getVelocity(TalonFX motor) {
-        return motor.getVelocity().getValueAsDouble();
-    }
-
-    /**
-     * Get the velocity of the upper motor
+     * Get the velocity of the upper motor in Revolution per Second
      * 
      * @return the velocity of the upper motor
      */
-    public double getVelocity() {
-        return m_upper.getVelocity().getValueAsDouble();
+    public double getVelocityRPM() {
+        return m_upper.getVelocity().getValueAsDouble() * 60.0;
     }
 
     public void run() {
         // Positive = Clockwise, Negative = Counter Clockwise
-        setControl(m_upper, voltageOut.withOutput(-SHOOT_VOLTS));
+        isShooting = true;
+        setControl(m_upper, voltageOut.withOutput(outputVolts));
+    }
+
+    @Override
+    public void periodic() {
+        if (isShooting) {
+            final double rpm = getVelocityRPM();
+            final double pidVolts = pid.calculate(rpm);
+
+            // Clamp it to ensure it's within the +/- 12 range
+            outputVolts = Math.max(-12.0, Math.min(12.0, pidVolts));
+        }
     }
 }
