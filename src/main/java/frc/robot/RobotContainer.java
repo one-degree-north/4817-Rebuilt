@@ -16,12 +16,14 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
+import frc.robot.subsystems.FlyWheel;
 
 public class RobotContainer {
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top
@@ -41,9 +43,10 @@ public class RobotContainer {
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
-    private final CommandPS5Controller joystick = new CommandPS5Controller(0);
+    private final CommandPS5Controller driver = new CommandPS5Controller(0);
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
+    public final FlyWheel flyWheel = new FlyWheel();
 
     /* Path follower */
     private final SendableChooser<Command> autoChooser;
@@ -63,12 +66,12 @@ public class RobotContainer {
         // and Y is defined as to the left according to WPILib convention.
         drivetrain.setDefaultCommand(
                 // Drivetrain will execute this command periodically
-                drivetrain.applyRequest(() -> drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with
-                                                                                                   // negative Y
-                                                                                                   // (forward)
-                        .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                        .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with
-                                                                                    // negative X (left)
+                drivetrain.applyRequest(() -> drive.withVelocityX(-driver.getLeftY() * MaxSpeed) // Drive forward with
+                                                                                                 // negative Y
+                                                                                                 // (forward)
+                        .withVelocityY(-driver.getLeftX() * MaxSpeed) // Drive left with negative X (left)
+                        .withRotationalRate(-driver.getRightX() * MaxAngularRate) // Drive counterclockwise with
+                                                                                  // negative X (left)
                 ));
 
         // Idle while the robot is disabled. This ensures the configured
@@ -77,13 +80,13 @@ public class RobotContainer {
         RobotModeTriggers.disabled().whileTrue(
                 drivetrain.applyRequest(() -> idle).ignoringDisable(true));
 
-        joystick.cross().whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.circle().whileTrue(drivetrain
+        driver.cross().whileTrue(drivetrain.applyRequest(() -> brake));
+        driver.circle().whileTrue(drivetrain
                 .applyRequest(
-                        () -> point.withModuleDirection(new Rotation2d(-joystick.getLeftY(), -joystick.getLeftX()))));
+                        () -> point.withModuleDirection(new Rotation2d(-driver.getLeftY(), -driver.getLeftX()))));
 
-        joystick.povUp().whileTrue(drivetrain.applyRequest(() -> forwardStraight.withVelocityX(0.5).withVelocityY(0)));
-        joystick.povDown()
+        driver.povUp().whileTrue(drivetrain.applyRequest(() -> forwardStraight.withVelocityX(0.5).withVelocityY(0)));
+        driver.povDown()
                 .whileTrue(drivetrain.applyRequest(() -> forwardStraight.withVelocityX(-0.5).withVelocityY(0)));
 
         // Run SysId routines when holding back/start and X/Y.
@@ -91,16 +94,21 @@ public class RobotContainer {
 
         // this was originally .back() and .y, but since PS5 has no back and y button, I
         // changed it to L1 and triangle instead
-        joystick.L1().and(joystick.triangle()).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
-        joystick.L1().and(joystick.triangle()).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
+        driver.L1().and(driver.triangle()).whileTrue(drivetrain.sysIdDynamic(Direction.kForward));
+        driver.L1().and(driver.triangle()).whileTrue(drivetrain.sysIdDynamic(Direction.kReverse));
 
         // they were originally .start() and .x, but since PS5 has no start and x
         // button, I changed it to R1 and square instead
-        joystick.R1().and(joystick.square()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
-        joystick.R1().and(joystick.square()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
+        driver.R1().and(driver.square()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kForward));
+        driver.R1().and(driver.square()).whileTrue(drivetrain.sysIdQuasistatic(Direction.kReverse));
 
         // Reset the field-centric heading on left bumper press.
-        joystick.L1().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
+        driver.L1().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
+
+        // Run the flywheel when the L2 key is pressed
+        flyWheel.setDefaultCommand(new RunCommand(
+                flyWheel::stopMotor, flyWheel));
+        driver.L2().whileTrue(new RunCommand(flyWheel::run, flyWheel));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }
