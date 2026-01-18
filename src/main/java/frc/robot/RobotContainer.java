@@ -108,7 +108,7 @@ public class RobotContainer {
         // Run the flywheel when the L2 key is pressed
         flyWheel.setDefaultCommand(new RunCommand(
                 flyWheel::stopMotor, flyWheel));
-        driver.L2().whileTrue(new RunCommand(flyWheel::run, flyWheel));
+        driver.L2().whileTrue(new RunCommand(flyWheel::startShooting, flyWheel));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }
