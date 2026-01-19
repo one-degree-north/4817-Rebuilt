@@ -23,7 +23,8 @@ public class FlyWheel extends SubsystemBase {
 
     private final String CAN_BUS = "rio";
     private final String MOTOR_TYPE = "Falcon500";
-    private final double SHOOTING_RPS = 30.0;
+    private final double TOLERANCE = 2.0;
+    private double setpointRPS = 30.0; // The motors' setpoint RPS while shooting
     private double targetRPS = 0.0; // Positive = Counter Clockwise, Negative = Clockwise, initially at rest
 
     private TalonFX m_upper, m_lower;
@@ -56,19 +57,18 @@ public class FlyWheel extends SubsystemBase {
     }
 
     /**
-     * Get the velocity of the upper motor in Revolution per Second
+     * Get the velocity of the 2 motor sin Revolution per Second
      * 
-     * @return the velocity of the upper motor
+     * @return the velocity of the 2 motors
      */
-    public double getVelocityRPS() {
+    private double getVelocityRPS() {
         return m_upper.getVelocity().getValueAsDouble();
     }
 
     /**
-     * Set the control of a specific motor
+     * Set the control of the 2 motors
      * 
-     * @param req
-     *            - the control request
+     * @param req - the control request
      */
     private void setControl(ControlRequest req) {
         if (m_upper.isAlive()) {
@@ -77,21 +77,69 @@ public class FlyWheel extends SubsystemBase {
     }
 
     /**
+     * Check if the current motors' RPS is within the tolerance range compare to the
+     * targetRPS
+     * 
+     * @return true if the motors are in the range, false otherwise
+     */
+    private boolean atSetpoint() {
+        return Math.abs(getVelocityRPS() - targetRPS) <= TOLERANCE;
+    }
+
+    /**
+     * Check if the current motors' RPS is within the tolerance range compare to the
+     * targetRPS
+     * 
+     * @param withTolerance - whether to include tolerance or not
+     * @return true if the motors are within the expected range or matches with the
+     *         setpoint value
+     */
+    public boolean atSetpoint(boolean withTolerance) {
+        if (withTolerance)
+            return atSetpoint();
+        return Double.compare(getVelocityRPS(), targetRPS) == 0;
+    }
+
+    /**
+     * Set the Revolution-per-Second value of the 2 motors
+     * 
+     * @param RPS - The Revolution-per-Second value in decimals
+     */
+    private void setTargetRPS(double RPS) {
+        targetRPS = RPS;
+    }
+
+    /**
+     * Set the setPointRPS variable, which determines the RPS of the flywheel motor
+     * when shooting
+     * 
+     * @param RPS - The Revolution-per-Second value of the motor while shooting
+     */
+    public void setSetpointRPS(double RPS) {
+        setpointRPS = RPS;
+    }
+
+    /**
      * Stop the 2 motors
      */
     public void stopMotor() {
-        targetRPS = 0.0;
+        setTargetRPS(0.0);
     }
 
+    /**
+     * Start shooting, which sets the targetRPS to the SHOOTING_RPS
+     */
     public void startShooting() {
-        targetRPS = SHOOTING_RPS;
+        setTargetRPS(setpointRPS);
     }
 
     @Override
     public void periodic() {
         // Update the motor's velocity
-        m_velocityRequest.Velocity = targetRPS;
-        setControl(m_velocityRequest);
+        if (!atSetpoint()) {
+            m_velocityRequest.Velocity = targetRPS;
+            setControl(m_velocityRequest);
+        }
 
         // Display important information on SmartDashboard
         SmartDashboard.putNumber("Motor Velocity (RPS)", getVelocityRPS());
