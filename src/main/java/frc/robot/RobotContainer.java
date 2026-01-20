@@ -4,11 +4,12 @@
 
 package frc.robot;
 
-import static edu.wpi.first.units.Units.*;
+import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.RadiansPerSecond;
+import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.commands.FollowPathCommand;
 
@@ -20,7 +21,7 @@ import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
-
+import frc.robot.constants.FlyWheelConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.FlyWheel;
@@ -106,9 +107,12 @@ public class RobotContainer {
         driver.L1().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
 
         // Run the flywheel when the L2 key is pressed
-        flyWheel.setDefaultCommand(new RunCommand(
-                flyWheel::stopMotor, flyWheel));
-        driver.L2().whileTrue(new RunCommand(flyWheel::startShooting, flyWheel));
+        flyWheel.setDefaultCommand(new RunCommand(() -> {
+            flyWheel.setTargetRPS(0.0);
+        }, flyWheel));
+        driver.L2().whileTrue(new RunCommand(() -> {
+            flyWheel.setTargetRPS(FlyWheelConstants.SHOOTING_RPS);
+        }, flyWheel));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }

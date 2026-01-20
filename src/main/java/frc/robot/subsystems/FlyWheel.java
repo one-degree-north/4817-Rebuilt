@@ -24,7 +24,6 @@ public class FlyWheel extends SubsystemBase {
     private final String CAN_BUS = "rio";
     private final String MOTOR_TYPE = "Falcon500";
     private final double TOLERANCE = 2.0;
-    private double setpointRPS = 30.0; // The motors' setpoint RPS while shooting
     private double targetRPS = 0.0; // Positive = Counter Clockwise, Negative = Clockwise, initially at rest
 
     private TalonFX m_upper, m_lower;
@@ -105,32 +104,8 @@ public class FlyWheel extends SubsystemBase {
      * 
      * @param RPS - The Revolution-per-Second value in decimals
      */
-    private void setTargetRPS(double RPS) {
+    public void setTargetRPS(double RPS) {
         targetRPS = RPS;
-    }
-
-    /**
-     * Set the setPointRPS variable, which determines the RPS of the flywheel motor
-     * when shooting
-     * 
-     * @param RPS - The Revolution-per-Second value of the motor while shooting
-     */
-    public void setSetpointRPS(double RPS) {
-        setpointRPS = RPS;
-    }
-
-    /**
-     * Stop the 2 motors
-     */
-    public void stopMotor() {
-        setTargetRPS(0.0);
-    }
-
-    /**
-     * Start shooting, which sets the targetRPS to the SHOOTING_RPS
-     */
-    public void startShooting() {
-        setTargetRPS(setpointRPS);
     }
 
     @Override
