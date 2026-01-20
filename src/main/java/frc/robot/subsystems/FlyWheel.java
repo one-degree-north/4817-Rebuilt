@@ -39,7 +39,7 @@ public class FlyWheel extends SubsystemBase {
         var motorConfigs = new TalonFXConfiguration()
                 .withCurrentLimits(MotorConfigs.getCurrentLimitConfig(MOTOR_TYPE))
                 .withMotorOutput(
-                        MotorConfigs.getMotorOutputConfigs(NeutralModeValue.Coast,
+                        MotorConfigs.getMotorOutputConfigs(NeutralModeValue.Brake,
                                 InvertedValue.CounterClockwise_Positive))
                 .withFeedback(MotorConfigs.getFeedbackConfigs(1 / 1));
 
