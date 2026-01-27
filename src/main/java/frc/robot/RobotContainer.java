@@ -17,14 +17,17 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandPS5Controller;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.robot.constants.FlyWheelConstants;
+import frc.robot.constants.IntakeConstants;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.FlyWheel;
+import frc.robot.subsystems.Intake;
 
 public class RobotContainer {
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top
@@ -37,7 +40,6 @@ public class RobotContainer {
     private final SwerveRequest.FieldCentric drive = new SwerveRequest.FieldCentric()
             .withDeadband(MaxSpeed * 0.1).withRotationalDeadband(MaxAngularRate * 0.1) // Add a 10% deadband
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage); // Use open-loop control for drive motors
-    private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.PointWheelsAt point = new SwerveRequest.PointWheelsAt();
     private final SwerveRequest.RobotCentric forwardStraight = new SwerveRequest.RobotCentric()
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
@@ -48,6 +50,7 @@ public class RobotContainer {
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     public final FlyWheel flyWheel = new FlyWheel();
+    public final Intake intake = new Intake();
 
     /* Path follower */
     private final SendableChooser<Command> autoChooser;
@@ -59,7 +62,7 @@ public class RobotContainer {
         configureBindings();
 
         // Warmup PathPlanner to avoid Java pauses
-        FollowPathCommand.warmupCommand().schedule();
+        CommandScheduler.getInstance().schedule(FollowPathCommand.warmupCommand());
     }
 
     private void configureBindings() {
@@ -81,7 +84,6 @@ public class RobotContainer {
         RobotModeTriggers.disabled().whileTrue(
                 drivetrain.applyRequest(() -> idle).ignoringDisable(true));
 
-        driver.cross().whileTrue(drivetrain.applyRequest(() -> brake));
         driver.circle().whileTrue(drivetrain
                 .applyRequest(
                         () -> point.withModuleDirection(new Rotation2d(-driver.getLeftY(), -driver.getLeftX()))));
@@ -113,6 +115,23 @@ public class RobotContainer {
         driver.L2().whileTrue(new RunCommand(() -> {
             flyWheel.setTargetRPS(FlyWheelConstants.SHOOTING_RPS);
         }, flyWheel));
+
+        intake.setDefaultCommand(new RunCommand(() -> {
+            intake.setMLeftVolts(0.0);
+            intake.setMRightVolts(0.0);
+        }, intake));
+        driver.R1().whileTrue(new RunCommand(() -> {
+            intake.setMLeftVolts(IntakeConstants.RUNNING_VOLTS);
+        }, intake));
+        driver.R2().whileTrue(new RunCommand(() -> {
+            intake.setMRightVolts(IntakeConstants.RUNNING_VOLTS);
+        }, intake));
+        driver.R1().and(driver.square()).whileTrue(new RunCommand(() -> {
+            intake.setMLeftVolts(-IntakeConstants.RUNNING_VOLTS);
+        }, intake));
+        driver.R2().and(driver.cross()).whileTrue(new RunCommand(() -> {
+            intake.setMRightVolts(-IntakeConstants.RUNNING_VOLTS);
+        }, intake));
 
         drivetrain.registerTelemetry(logger::telemeterize);
     }

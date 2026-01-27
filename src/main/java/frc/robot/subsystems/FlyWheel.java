@@ -1,5 +1,8 @@
 package frc.robot.subsystems;
 
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
+import com.ctre.phoenix6.configs.FeedbackConfigs;
+import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.ControlRequest;
 import com.ctre.phoenix6.controls.Follower;
@@ -11,7 +14,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.constants.MotorConfigs;
+import frc.robot.constants.FlyWheelConstants;
 
 public class FlyWheel extends SubsystemBase {
     // Constants for PID/Feedforward
@@ -21,27 +24,33 @@ public class FlyWheel extends SubsystemBase {
     private final double KS = 0.2;
     private final double KV = 0.1;
 
-    private final String CAN_BUS = "rio";
-    private final String MOTOR_TYPE = "Falcon500";
-    private final double TOLERANCE = 2.0;
     private double targetRPS = 0.0; // Positive = Counter Clockwise, Negative = Clockwise, initially at rest
 
     private TalonFX m_upper, m_lower;
     private VelocityVoltage m_velocityRequest = new VelocityVoltage(0).withSlot(0);
 
     public FlyWheel() {
-        this.m_lower = new TalonFX(1, CAN_BUS);
-        this.m_upper = new TalonFX(2, CAN_BUS);
+        this.m_lower = new TalonFX(1);
+        this.m_upper = new TalonFX(2);
         configureMotors();
     }
 
     private void configureMotors() {
+        CurrentLimitsConfigs currentLimitsConfigs = new CurrentLimitsConfigs();
+        currentLimitsConfigs.withStatorCurrentLimit(50.0);
+        currentLimitsConfigs.SupplyCurrentLimit = 30.0;
+        currentLimitsConfigs.StatorCurrentLimitEnable = true;
+        currentLimitsConfigs.SupplyCurrentLimitEnable = true;
+        MotorOutputConfigs motorOutputConfigs = new MotorOutputConfigs();
+        motorOutputConfigs.withInverted(InvertedValue.CounterClockwise_Positive);
+        motorOutputConfigs.withNeutralMode(NeutralModeValue.Brake);
+        FeedbackConfigs feedbackConfigs = new FeedbackConfigs();
+        feedbackConfigs.SensorToMechanismRatio = 1 / 1;
+
         var motorConfigs = new TalonFXConfiguration()
-                .withCurrentLimits(MotorConfigs.getCurrentLimitConfig(MOTOR_TYPE))
-                .withMotorOutput(
-                        MotorConfigs.getMotorOutputConfigs(NeutralModeValue.Brake,
-                                InvertedValue.CounterClockwise_Positive))
-                .withFeedback(MotorConfigs.getFeedbackConfigs(1 / 1));
+                .withCurrentLimits(currentLimitsConfigs)
+                .withMotorOutput(motorOutputConfigs)
+                .withFeedback(feedbackConfigs);
 
         var slot0Configs = motorConfigs.Slot0;
         slot0Configs.kP = KP; // Proportional gain
@@ -67,11 +76,11 @@ public class FlyWheel extends SubsystemBase {
     /**
      * Set the control of the 2 motors
      * 
-     * @param req - the control request
+     * @param request - the control request
      */
-    private void setControl(ControlRequest req) {
+    private void setControl(ControlRequest request) {
         if (m_upper.isAlive()) {
-            m_upper.setControl(req);
+            m_upper.setControl(request);
         }
     }
 
@@ -82,7 +91,7 @@ public class FlyWheel extends SubsystemBase {
      * @return true if the motors are in the range, false otherwise
      */
     private boolean atSetpoint() {
-        return Math.abs(getVelocityRPS() - targetRPS) <= TOLERANCE;
+        return Math.abs(getVelocityRPS() - targetRPS) <= FlyWheelConstants.TOLERANCE;
     }
 
     /**
