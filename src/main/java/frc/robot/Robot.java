@@ -17,6 +17,8 @@ import edu.wpi.first.wpilibj2.command.CommandScheduler;
  */
 public class Robot extends TimedRobot {
     private Command m_autonomousCommand;
+    // private CommandSwerveDrivetrain drivetrain;
+    private Vision vision;
 
     @SuppressWarnings("unused")
     private final RobotContainer m_robotContainer;
@@ -31,6 +33,7 @@ public class Robot extends TimedRobot {
         // and put our
         // autonomous chooser on the dashboard.
         m_robotContainer = new RobotContainer();
+        vision = new Vision(m_robotContainer.drivetrain::addVisionMeasurement);
     }
 
     /**
@@ -53,6 +56,12 @@ public class Robot extends TimedRobot {
         // robot's periodic
         // block in order for anything in the Command-based framework to work.
         CommandScheduler.getInstance().run();
+
+        // Update drivetrain
+        m_robotContainer.drivetrain.periodic();
+
+        // Update vision
+        vision.periodic();
     }
 
     /** This function is called once each time the robot enters Disabled mode. */
@@ -70,7 +79,11 @@ public class Robot extends TimedRobot {
      */
     @Override
     public void autonomousInit() {
+        m_autonomousCommand = m_robotContainer.getAutonomousCommand();
 
+        if (m_autonomousCommand != null) {
+            CommandScheduler.getInstance().schedule(m_autonomousCommand);
+        }
     }
 
     /** This function is called periodically during autonomous. */
